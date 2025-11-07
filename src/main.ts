@@ -18,7 +18,7 @@ async function bootstrap() {
   );
 
   // 3. Iniciamos o servidor na porta 3333, como planejamos.
-  await app.listen(3333, '0.0.0.0'); // Usar '0.0.0.0' garante que seja acessível na sua rede local.
+  await app.listen(3333); // Usar '0.0.0.0' garante que seja acessível na sua rede local.
   console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
