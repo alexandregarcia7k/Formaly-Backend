@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.git
+.gitignore
+README.md
+*.md
+.vscode
+.idea
+coverage
+.DS_Store
+prisma.config.ts

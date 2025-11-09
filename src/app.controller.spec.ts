@@ -15,8 +15,10 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return health check', () => {
+      const result = appController.healthCheck();
+      expect(result).toHaveProperty('status', 'ok');
+      expect(result).toHaveProperty('service', 'Formaly Backend API');
     });
   });
 });

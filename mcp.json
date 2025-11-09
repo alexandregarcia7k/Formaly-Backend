@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "context7-local": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-c45d3d84-6eea-4302-9a2e-b85eb62005b3"],
+      "envFile": "${workspaceFolder}/.env"
+    },
+    "context7-remote": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-c45d3d84-6eea-4302-9a2e-b85eb62005b3"
+      }
+    }
+  }
+}

@@ -1,18 +1,46 @@
-version: "3.8"
-
 services:
   postgres:
-    image: postgres:16 # Recomendo usar uma versão específica
-    container_name: formaly-db-local
-    restart: always
+    image: postgres:16-alpine
+    container_name: formaly-postgres
+    restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: docker
       POSTGRES_PASSWORD: docker
-      POSTGRES_DB: formaly-db
+      POSTGRES_DB: formaly
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - formaly-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: formaly-backend
+    restart: unless-stopped
+    ports:
+      - "3333:3333"
+    environment:
+      DATABASE_URL: postgresql://docker:docker@postgres:5432/formaly?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      NODE_ENV: ${NODE_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - formaly-network
 
 volumes:
   postgres_data:
+
+networks:
+  formaly-network:
+    driver: bridge

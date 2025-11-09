@@ -1,24 +1,60 @@
 import { NestFactory } from '@nestjs/core';
-// Importamos o Adaptador do Fastify e os tipos necessários
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import fastifyCookie from '@fastify/cookie';
 
 async function bootstrap() {
-  // 1. Criamos uma instância do adaptador do Fastify.
-  const adapter = new FastifyAdapter();
-
-  // 2. Passamos o adaptador para o NestFactory ao criar a aplicação.
-  //    O tipo <NestFastifyApplication> garante a tipagem correta.
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    adapter,
+    new FastifyAdapter(),
   );
 
-  // 3. Iniciamos o servidor na porta 3333, como planejamos.
-  await app.listen(3333); // Usar '0.0.0.0' garante que seja acessível na sua rede local.
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  // Registrar plugin de cookies
+  await app.register(fastifyCookie, {
+    secret: process.env.COOKIE_SECRET || process.env.JWT_SECRET,
+  });
+
+  // Configurar CORS para aceitar cookies
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    credentials: true,
+  });
+
+  // Adiciona o Pipe de validação do Zod globalmente.
+  // Isso garante que todos os DTOs baseados em Zod serão validados.
+  app.useGlobalPipes(new ZodValidationPipe());
+
+  // Adiciona o filtro de exceções do Prisma globalmente.
+  // Converte erros do Prisma em respostas HTTP apropriadas.
+  app.useGlobalFilters(new PrismaExceptionFilter());
+
+  // Configuração do Swagger para documentação da API (apenas em desenvolvimento).
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Formaly API')
+      .setDescription('API para o sistema de formulários Formaly')
+      .setVersion('1.0')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
+
+  // Inicia o servidor na porta 3333, escutando em todas as interfaces.
+  await app.listen(3333, '0.0.0.0');
+  console.log(`🚀 Server running on http://localhost:3333`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`📚 Swagger docs on http://localhost:3333/api`);
+  }
 }
-bootstrap();
+
+// Chama a função bootstrap e captura possíveis erros.
+bootstrap().catch((err) => {
+  console.error('Erro ao inicializar a aplicação:', err);
+  process.exit(1);
+});
