@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import fastifyCookie from '@fastify/cookie';
 
 async function bootstrap() {
@@ -33,6 +34,11 @@ async function bootstrap() {
   // Adiciona o filtro de exceções do Prisma globalmente.
   // Converte erros do Prisma em respostas HTTP apropriadas.
   app.useGlobalFilters(new PrismaExceptionFilter());
+
+  // Adiciona JwtAuthGuard globalmente.
+  // Protege todas as rotas por padrão, exceto as marcadas com @Public().
+  const reflector = app.get(Reflector);
+  app.useGlobalGuards(new JwtAuthGuard(reflector));
 
   // Configuração do Swagger para documentação da API (apenas em desenvolvimento).
   if (process.env.NODE_ENV !== 'production') {
