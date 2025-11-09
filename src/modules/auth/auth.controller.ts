@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, HttpCode } from '@nestjs/common';
+import { Controller, Post, Get, Body, Res, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
@@ -6,6 +6,8 @@ import { SyncUserDto } from './dto/sync-user.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Public } from '@/common/decorators/public.decorator';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import type { User } from '@prisma/client';
 
 @ApiTags('auth')
 @Controller('api/auth')
@@ -69,6 +71,15 @@ export class AuthController {
       path: '/',
     });
     return { message: 'Logout realizado com sucesso' };
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Obter usuário autenticado' })
+  @ApiResponse({ status: 200, description: 'Usuário autenticado' })
+  @ApiResponse({ status: 401, description: 'Não autenticado' })
+  async getMe(@CurrentUser() user: User) {
+    const { password, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword };
   }
 
   private setCookie(reply: FastifyReply, token: string): void {
