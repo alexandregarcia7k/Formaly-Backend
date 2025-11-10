@@ -20,8 +20,4 @@ export class UsersService {
 
     return user;
   }
-
-  async findByIdOrNull(id: string): Promise<User | null> {
-    return this.usersRepository.findById(id);
-  }
 }

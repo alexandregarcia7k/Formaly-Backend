@@ -21,9 +21,8 @@ model User {
   image     String?
   password  String?  // Hash bcrypt (null se OAuth)
   
-  accounts     Account[]
-  forms        Form[]
-  submissions  FormSubmission[]  // Respostas recebidas
+  accounts Account[]
+  forms    Form[]
   
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -57,40 +56,28 @@ model Account {
 // ============================================
 
 model Form {
-  id          String         @id @default(cuid())
-  userId      String         @map("user_id")
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String     @id @default(uuid())
+  userId      String     @map("user_id")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  name        String         @db.VarChar(100)
-  description String?        @db.VarChar(500)
-  status      FormStatus     @default(ACTIVE)
+  name        String
+  description String?
+  status      FormStatus @default(ACTIVE)
   
   // Configurações
-  passwordHash                   String?  @map("password_hash")                                  // Hash bcrypt (null = sem senha)
-  maxResponses                   Int?     @map("max_responses")                                   // Limite de respostas (null = ilimitado)
-  expiresAt                      DateTime? @map("expires_at")                                    // Data de expiração
-  successMessage                 String?  @map("success_message") @db.Text                       // Mensagem após envio
-  allowMultipleSubmissions       Boolean  @default(true) @map("allow_multiple_submissions")      // Permitir múltiplas respostas da mesma pessoa
-  
-  // Duplicação
-  clonedFromId String?  @map("cloned_from_id")                    // ID do formulário original
-  clonedFrom   Form?    @relation("FormClones", fields: [clonedFromId], references: [id], onDelete: SetNull)
-  clones       Form[]   @relation("FormClones")                   // Formulários duplicados deste
+  maxResponses             Int?      @map("max_responses")
+  expiresAt                DateTime? @map("expires_at")
+  allowMultipleSubmissions Boolean   @default(true) @map("allow_multiple_submissions")
   
   fields      FormField[]
+  password    FormPassword?
   submissions FormSubmission[]
-  views       FormView[]                                           // Rastreamento de views únicas
+  views       FormView[]
   
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  deletedAt   DateTime?      @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   
-  @@index([userId])
-  @@index([userId, deletedAt])  // Otimizar "meus formulários ativos"
-  @@index([status])
-  @@index([createdAt])
-  @@index([expiresAt])
-  @@index([deletedAt])
+  @@index([userId, createdAt])
   @@map("forms")
 }
 
@@ -99,67 +86,52 @@ enum FormStatus {
   INACTIVE
 }
 
-
+model FormPassword {
+  formId String @id @map("form_id")
+  hash   String
+  form   Form   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  
+  @@map("form_passwords")
+}
 
 // ============================================
 // CAMPOS DO FORMULÁRIO
 // ============================================
 
 model FormField {
-  id       String    @id @default(cuid())
-  formId   String    @map("form_id")
-  form     Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
-  
-  type     String    // 'text' | 'email' | 'phone' | 'textarea' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file'
+  id       String  @id @default(uuid())
+  formId   String  @map("form_id")
+  type     String  // 'text' | 'email' | 'phone' | 'textarea' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'file'
   label    String
   name     String
-  required Boolean   @default(false)
-  order    Int       @default(0)
-  config   Json?     // Validações, options, placeholder, maxSize (5MB para file), accept, etc
+  required Boolean @default(false)
+  config   Json?   // { placeholder, options, minLength, maxLength, min, max, accept, maxSize }
+  form     Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  values FormValue[]
   
-  values   FormValue[]
-  files    FormFile[]  // Arquivos enviados (para type='file')
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  
-  @@unique([formId, name])  // Evitar campos com mesmo nome no formulário
+  @@unique([formId, name])
   @@index([formId])
-  @@index([formId, order])  // Otimizar ordenação de campos
   @@map("form_fields")
 }
-
-
 
 // ============================================
 // SUBMISSÕES (RESPOSTAS)
 // ============================================
 
 model FormSubmission {
-  id        String      @id @default(cuid())
-  formId    String      @map("form_id")
-  form      Form        @relation(fields: [formId], references: [id], onDelete: Restrict)
-  userId    String      @map("user_id")  // Dono do formulário
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  fingerprint      String?  // Hash de IP + User-Agent (para validar duplicatas)
-  respondentEmail  String?  @map("respondent_email")  // Email do respondente (opcional)
-  respondentName   String?  @map("respondent_name")   // Nome do respondente (opcional)
-  
-  userAgent String?     @map("user_agent") @db.Text
-  device    String?     // 'desktop' | 'mobile'
-  
-  values    FormValue[]
-  files     FormFile[]  // Arquivos enviados nesta submissão
-  
+  id        String  @id @default(uuid())
+  formId    String  @map("form_id")
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent") @db.Text
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  values FormValue[]
+  form      Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  
+  
+  
   
   @@index([formId])
-  @@index([userId])
-  @@index([userId, formId])  // Otimizar "respostas dos meus formulários"
-  @@index([formId, createdAt])  // Otimizar queries de dashboard
-  @@index([formId, fingerprint])  // Otimizar validação de duplicatas
-  @@index([respondentEmail])  // Filtrar por email do respondente
   @@index([createdAt])
   @@map("form_submissions")
 }
@@ -169,20 +141,19 @@ model FormSubmission {
 // ============================================
 
 model FormValue {
-  id           String         @id @default(cuid())
+  id           String         @id @default(uuid())
+  fieldId      String         @map("field_id")
   submissionId String         @map("submission_id")
-  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  fieldId      String?        @map("field_id")  // Pode ser null se campo foi deletado
-  field        FormField?     @relation(fields: [fieldId], references: [id], onDelete: SetNull)
+  type         String         
+  value        Json?          
+  createdAt DateTime @default(now()) @map("created_at")
+  field      FormField      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  submission FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   
-  fieldLabel   String         @map("field_label")  // Snapshot do label (preserva histórico)
-  fieldType    String         @map("field_type")   // Snapshot do tipo (preserva histórico)
-  value        Json?          // Suporta string, number, array, etc
   
-  createdAt    DateTime       @default(now()) @map("created_at")
-  
-  @@index([submissionId])
   @@index([fieldId])
+  @@index([submissionId])
+  @@index([value], type: Gin)
   @@map("form_values")
 }
 
@@ -192,42 +163,12 @@ model FormValue {
 
 model FormView {
   formId      String   @map("form_id")
-  fingerprint String   // Hash de IP + User-Agent (evita duplicatas de autenticados e anônimos)
+  fingerprint String   // Hash de IP + User-Agent
   createdAt   DateTime @default(now()) @map("created_at")
   
   form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
   
-  @@id([formId, fingerprint])  // Composite primary key
-  @@index([formId, createdAt])  // Otimizar "views do form X nos últimos 7 dias"
+  @@id([formId, fingerprint])
+  @@index([formId, createdAt])
   @@map("form_views")
-}
-
-// ============================================
-// ARQUIVOS (FILE UPLOAD)
-// ============================================
-// TODO: Implementar storage (Cloudflare R2, AWS S3, etc)
-// Limite: 5MB por arquivo
-// Validar mimeType no backend
-
-model FormFile {
-  id           String         @id @default(cuid())
-  submissionId String         @map("submission_id")
-  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  fieldId      String?        @map("field_id")  // Pode ser null se campo foi deletado
-  field        FormField?     @relation(fields: [fieldId], references: [id], onDelete: SetNull)
-  
-  fieldLabel   String         @map("field_label")  // Snapshot do label (preserva histórico)
-  fieldType    String         @map("field_type")   // Snapshot do tipo (preserva histórico)
-  
-  filename     String         // Nome gerado (uuid.ext)
-  originalName String         @map("original_name")  // Nome original do arquivo
-  url          String         // URL do arquivo (após upload)
-  size         Int            // Tamanho em bytes
-  mimeType     String         @map("mime_type")      // Ex: 'application/pdf', 'image/jpeg'
-  
-  createdAt    DateTime       @default(now()) @map("created_at")
-  
-  @@index([submissionId])
-  @@index([fieldId])
-  @@map("form_files")
 }

@@ -22,25 +22,12 @@ import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
-import { Public } from '@/common/decorators/public.decorator';
 import type { User } from '@prisma/client';
-import { FIELD_TYPES_METADATA } from '@/common/types/field-types.type';
 
 @ApiTags('forms')
 @Controller('api/forms')
 export class FormsController {
   constructor(private readonly formsService: FormsService) {}
-
-  @Get('field-types')
-  @Public()
-  @ApiOperation({ summary: 'Listar tipos de campos disponíveis' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de tipos de campos',
-  })
-  getFieldTypes() {
-    return Object.values(FIELD_TYPES_METADATA);
-  }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -107,7 +94,7 @@ export class FormsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Deletar formulário (soft delete)' })
+  @ApiOperation({ summary: 'Deletar formulário' })
   @ApiResponse({
     status: 204,
     description: 'Formulário deletado',

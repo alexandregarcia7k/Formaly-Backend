@@ -13,14 +13,12 @@ export class UsersRepository {
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: { email },
-      include: { accounts: true },
     });
   }
 
   async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: { id },
-      include: { accounts: true },
     });
   }
 

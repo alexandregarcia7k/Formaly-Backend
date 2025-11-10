@@ -20,7 +20,7 @@ export class FormsRepository {
     return this.prisma.form.findUnique({
       where: { id },
       include: {
-        fields: { orderBy: { order: 'asc' } },
+        fields: true,
         _count: { select: { submissions: true } },
       },
     });
@@ -32,7 +32,7 @@ export class FormsRepository {
     take: number,
   ): Promise<Form[]> {
     return this.prisma.form.findMany({
-      where: { userId, deletedAt: null },
+      where: { userId },
       skip,
       take,
       orderBy: { createdAt: 'desc' },
@@ -44,7 +44,7 @@ export class FormsRepository {
 
   async countByUserId(userId: string): Promise<number> {
     return this.prisma.form.count({
-      where: { userId, deletedAt: null },
+      where: { userId },
     });
   }
 
@@ -53,54 +53,54 @@ export class FormsRepository {
       where: { id },
       data,
       include: {
-        fields: { orderBy: { order: 'asc' } },
+        fields: true,
         _count: { select: { submissions: true } },
       },
     });
   }
 
-  async softDelete(id: string): Promise<void> {
-    await this.prisma.form.update({
+  async delete(id: string): Promise<void> {
+    await this.prisma.form.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
   }
 
   async clone(formId: string): Promise<Form> {
     const original = await this.prisma.form.findUnique({
       where: { id: formId },
-      include: { fields: true },
+      include: { fields: true, password: true },
     });
 
-    if (!original) {
-      throw new Error('Form not found');
+    const cloneData: Prisma.FormCreateInput = {
+      user: { connect: { id: original!.userId } },
+      name: `${original!.name} (cópia)`,
+      description: original!.description,
+      status: original!.status,
+      maxResponses: original!.maxResponses,
+      expiresAt: original!.expiresAt,
+      allowMultipleSubmissions: original!.allowMultipleSubmissions,
+      fields: {
+        create: original!.fields.map((field) => ({
+          type: field.type,
+          label: field.label,
+          name: field.name,
+          required: field.required,
+          config: field.config as Prisma.JsonObject,
+        })),
+      },
+    };
+
+    // Clonar senha se existir
+    if (original!.password) {
+      cloneData.password = {
+        create: { hash: original!.password.hash },
+      };
     }
 
     return this.prisma.form.create({
-      data: {
-        userId: original.userId,
-        name: `${original.name} (cópia)`,
-        description: original.description,
-        status: original.status,
-        passwordHash: original.passwordHash,
-        maxResponses: original.maxResponses,
-        expiresAt: original.expiresAt,
-        successMessage: original.successMessage,
-        allowMultipleSubmissions: original.allowMultipleSubmissions,
-        clonedFromId: original.id,
-        fields: {
-          create: original.fields.map((field, index) => ({
-            type: field.type,
-            label: field.label,
-            name: field.name,
-            required: field.required,
-            order: index,
-            config: field.config as Prisma.JsonObject,
-          })),
-        },
-      },
+      data: cloneData,
       include: {
-        fields: { orderBy: { order: 'asc' } },
+        fields: true,
         _count: { select: { submissions: true } },
       },
     });

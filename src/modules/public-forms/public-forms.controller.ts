@@ -28,7 +28,14 @@ export class PublicFormsController {
     @Ip() ip: string,
   ) {
     const userAgent = req.headers['user-agent'];
-    await this.publicFormsService.trackView(id, ip, userAgent);
+
+    // Tenta registrar visualização, mas não bloqueia se falhar
+    try {
+      await this.publicFormsService.trackView(id, ip, userAgent);
+    } catch {
+      // Tracking é não-crítico, ignora erro silenciosamente
+    }
+
     return this.publicFormsService.getPublicForm(id);
   }
 

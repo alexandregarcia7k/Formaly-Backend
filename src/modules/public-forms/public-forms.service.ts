@@ -12,6 +12,7 @@ import {
   FormPasswordRequiredException,
   FormPasswordInvalidException,
   SubmissionDuplicateException,
+  ValidationException,
 } from '@/common/exceptions/app.exceptions';
 
 @Injectable()
@@ -20,9 +21,10 @@ export class PublicFormsService {
 
   async getPublicForm(id: string) {
     const form = await this.prisma.form.findUnique({
-      where: { id, deletedAt: null },
+      where: { id },
       include: {
-        fields: { orderBy: { order: 'asc' } },
+        fields: true,
+        password: true,
         _count: { select: { submissions: true } },
       },
     });
@@ -47,8 +49,7 @@ export class PublicFormsService {
       id: form.id,
       name: form.name,
       description: form.description,
-      successMessage: form.successMessage,
-      requiresPassword: !!form.passwordHash,
+      requiresPassword: !!form.password,
       fields: form.fields.map((field) => ({
         id: field.id,
         type: field.type,
@@ -62,19 +63,19 @@ export class PublicFormsService {
 
   async validatePassword(id: string, password: string): Promise<boolean> {
     const form = await this.prisma.form.findUnique({
-      where: { id, deletedAt: null },
-      select: { passwordHash: true },
+      where: { id },
+      include: { password: true },
     });
 
     if (!form) {
       throw new FormNotFoundException(id);
     }
 
-    if (!form.passwordHash) {
+    if (!form.password) {
       return true;
     }
 
-    const isValid = await bcrypt.compare(password, form.passwordHash);
+    const isValid = await bcrypt.compare(password, form.password.hash);
 
     if (!isValid) {
       throw new FormPasswordInvalidException();
@@ -90,8 +91,8 @@ export class PublicFormsService {
     ip?: string,
   ) {
     const form = await this.prisma.form.findUnique({
-      where: { id, deletedAt: null },
-      include: { fields: true },
+      where: { id },
+      include: { fields: true, password: true },
     });
 
     if (!form) {
@@ -114,11 +115,11 @@ export class PublicFormsService {
       throw new FormFullException();
     }
 
-    if (form.passwordHash && !dto.password) {
+    if (form.password && !dto.password) {
       throw new FormPasswordRequiredException();
     }
 
-    if (form.passwordHash && dto.password) {
+    if (form.password && dto.password) {
       await this.validatePassword(id, dto.password);
     }
 
@@ -126,7 +127,7 @@ export class PublicFormsService {
 
     if (!form.allowMultipleSubmissions) {
       const existingSubmission = await this.prisma.formSubmission.findFirst({
-        where: { formId: id, fingerprint },
+        where: { formId: id, ipAddress: ip },
       });
 
       if (existingSubmission) {
@@ -134,27 +135,37 @@ export class PublicFormsService {
       }
     }
 
-    const device = this.detectDevice(userAgent);
+    // Validar campos obrigatórios
+    const requiredFields = form.fields.filter((f) => f.required);
+    const missingFields = requiredFields.filter(
+      (field) =>
+        dto.values[field.name] === undefined ||
+        dto.values[field.name] === null ||
+        dto.values[field.name] === '',
+    );
+
+    if (missingFields.length > 0) {
+      throw new ValidationException(
+        `Campos obrigatórios não preenchidos: ${missingFields.map((f) => f.label).join(', ')}`,
+      );
+    }
 
     const submission = await this.prisma.formSubmission.create({
       data: {
         formId: id,
-        userId: form.userId,
-        fingerprint,
-        respondentEmail: dto.respondentEmail,
-        respondentName: dto.respondentName,
+        ipAddress: ip,
         userAgent,
-        device,
         values: {
-          create: Object.entries(dto.values).map(([key, value]) => {
-            const field = form.fields.find((f) => f.name === key);
-            return {
-              fieldId: field?.id,
-              fieldLabel: field?.label || key,
-              fieldType: field?.type || 'text',
-              value: value as Prisma.InputJsonValue,
-            };
-          }),
+          create: Object.entries(dto.values)
+            .filter(([key]) => form.fields.some((f) => f.name === key))
+            .map(([key, value]) => {
+              const field = form.fields.find((f) => f.name === key)!;
+              return {
+                fieldId: field.id,
+                type: field.type,
+                value: value as Prisma.InputJsonValue,
+              };
+            }),
         },
       },
       include: {
@@ -164,7 +175,7 @@ export class PublicFormsService {
 
     return {
       id: submission.id,
-      message: form.successMessage || 'Resposta enviada com sucesso! Obrigado.',
+      message: 'Resposta enviada com sucesso! Obrigado.',
     };
   }
 
@@ -191,9 +202,5 @@ export class PublicFormsService {
     return createHash('sha256').update(data).digest('hex');
   }
 
-  private detectDevice(userAgent?: string): string {
-    if (!userAgent) return 'unknown';
-    const isMobile = /mobile|android|iphone|ipad/i.test(userAgent);
-    return isMobile ? 'mobile' : 'desktop';
-  }
+
 }
