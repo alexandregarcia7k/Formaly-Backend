@@ -201,6 +201,4 @@ export class PublicFormsService {
     const data = `${ip || 'unknown'}-${userAgent || 'unknown'}`;
     return createHash('sha256').update(data).digest('hex');
   }
-
-
 }

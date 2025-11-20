@@ -5,13 +5,23 @@ import { AuthService } from './auth.service';
 import { SyncUserDto } from './dto/sync-user.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { SuccessMessages } from '@/common/types/error-response.type';
 import type { User } from '@prisma/client';
 
 @ApiTags('auth')
 @Controller('api/auth')
 export class AuthController {
+  private readonly COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+  } as const;
+
   constructor(private readonly authService: AuthService) {}
 
   @Post('sync')
@@ -64,13 +74,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout (limpa cookie)' })
   @ApiResponse({ status: 200, description: 'Logout realizado' })
   async logout(@Res({ passthrough: true }) reply: FastifyReply) {
-    reply.clearCookie('accessToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-    });
-    return { message: 'Logout realizado com sucesso' };
+    reply.clearCookie('accessToken', this.COOKIE_OPTIONS);
+    return { message: SuccessMessages.LOGOUT_SUCCESS };
   }
 
   @Get('me')
@@ -78,17 +83,33 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Usuário autenticado' })
   @ApiResponse({ status: 401, description: 'Não autenticado' })
   async getMe(@CurrentUser() user: User) {
-    const { password, ...userWithoutPassword } = user;
+    const { password: _password, ...userWithoutPassword } = user;
     return { user: userWithoutPassword };
+  }
+
+  @Post('forgot-password')
+  @Public()
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Solicitar recuperação de senha' })
+  @ApiResponse({ status: 200, description: 'Email enviado (se existir)' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @Public()
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Redefinir/Definir senha' })
+  @ApiResponse({ status: 200, description: 'Senha redefinida com sucesso' })
+  @ApiResponse({ status: 401, description: 'Token inválido/expirado/usado' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   private setCookie(reply: FastifyReply, token: string): void {
     reply.setCookie('accessToken', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...this.COOKIE_OPTIONS,
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
     });
   }
 }

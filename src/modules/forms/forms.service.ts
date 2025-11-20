@@ -24,12 +24,15 @@ export class FormsService {
       expiresAt,
       allowMultipleSubmissions: dto.allowMultipleSubmissions,
       fields: {
-        create: dto.fields.map((field, index) => ({
+        create: dto.fields.map((field) => ({
           type: field.type,
           label: field.label,
           name: field.name,
           required: field.required,
-          config: (field.config || {}) as Prisma.JsonObject,
+          config: {
+            ...(field.config || {}),
+            ...(field.placeholder && { placeholder: field.placeholder }),
+          } as Prisma.JsonObject,
         })),
       },
     };
@@ -100,7 +103,10 @@ export class FormsService {
             label: field.label,
             name: field.name,
             required: field.required,
-            config: (field.config || {}) as Prisma.JsonObject,
+            config: {
+              ...(field.config || {}),
+              ...(field.placeholder && { placeholder: field.placeholder }),
+            } as Prisma.JsonObject,
           })),
         },
       }),
@@ -132,6 +138,4 @@ export class FormsService {
     await this.findOne(id, userId);
     return this.formsRepository.clone(id);
   }
-
-
 }

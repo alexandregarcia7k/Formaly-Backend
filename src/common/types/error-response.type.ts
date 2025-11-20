@@ -18,6 +18,10 @@ export enum ErrorCode {
   TOKEN_EXPIRED = 'AUTH_1002',
   TOKEN_INVALID = 'AUTH_1003',
   UNAUTHORIZED = 'AUTH_1004',
+  OAUTH_ACCOUNT_EXISTS = 'AUTH_1005',
+  RESET_TOKEN_INVALID = 'AUTH_1006',
+  RESET_TOKEN_EXPIRED = 'AUTH_1007',
+  RESET_TOKEN_USED = 'AUTH_1008',
 
   // User errors (2xxx)
   USER_NOT_FOUND = 'USER_2001',
@@ -69,6 +73,10 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.TOKEN_EXPIRED]: 'Sessão expirada',
   [ErrorCode.TOKEN_INVALID]: 'Token inválido',
   [ErrorCode.UNAUTHORIZED]: 'Acesso não autorizado',
+  [ErrorCode.OAUTH_ACCOUNT_EXISTS]: 'Email já cadastrado via OAuth',
+  [ErrorCode.RESET_TOKEN_INVALID]: 'Token de recuperação inválido',
+  [ErrorCode.RESET_TOKEN_EXPIRED]: 'Token de recuperação expirado',
+  [ErrorCode.RESET_TOKEN_USED]: 'Token de recuperação já utilizado',
 
   // User
   [ErrorCode.USER_NOT_FOUND]: 'Usuário não encontrado',
@@ -111,3 +119,13 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INTERNAL_ERROR]: 'Erro interno do servidor',
   [ErrorCode.SERVICE_UNAVAILABLE]: 'Serviço temporariamente indisponível',
 };
+
+/**
+ * Mensagens de sucesso centralizadas
+ */
+export const SuccessMessages = {
+  PASSWORD_RESET_EMAIL_SENT:
+    'Se o email existir, você receberá instruções para redefinir sua senha',
+  PASSWORD_RESET_SUCCESS: 'Senha redefinida com sucesso',
+  LOGOUT_SUCCESS: 'Logout realizado com sucesso',
+} as const;

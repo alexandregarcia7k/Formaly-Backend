@@ -24,6 +24,12 @@ export class AccountsRepository {
     return this.prisma.account.create({ data });
   }
 
+  async findByUserId(userId: string): Promise<Account[]> {
+    return this.prisma.account.findMany({
+      where: { userId },
+    });
+  }
+
   async update(id: string, data: Prisma.AccountUpdateInput): Promise<Account> {
     return this.prisma.account.update({
       where: { id },

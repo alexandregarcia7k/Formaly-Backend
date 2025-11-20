@@ -28,4 +28,16 @@ export class UsersRepository {
       data,
     });
   }
+
+  async findByEmailWithAccounts(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        accounts: {
+          select: { provider: true },
+          take: 1,
+        },
+      },
+    });
+  }
 }

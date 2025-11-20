@@ -2,7 +2,18 @@ import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
 
 const fieldSchema = z.object({
-  type: z.enum(['text', 'email', 'phone', 'textarea', 'number', 'date', 'select', 'radio', 'checkbox', 'file']),
+  type: z.enum([
+    'text',
+    'email',
+    'phone',
+    'textarea',
+    'number',
+    'date',
+    'select',
+    'radio',
+    'checkbox',
+    'file',
+  ]),
   label: z.string().min(1, 'Label é obrigatório'),
   name: z.string().min(1, 'Name é obrigatório'),
   placeholder: z.string().nullish(),

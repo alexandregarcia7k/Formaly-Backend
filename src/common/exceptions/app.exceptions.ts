@@ -104,6 +104,46 @@ export class UserAlreadyExistsException extends ConflictException {
   }
 }
 
+export class OAuthAccountExistsException extends ConflictException {
+  constructor(provider: string) {
+    const message = `Este email já está cadastrado via ${provider}. Faça login com ${provider} ou defina uma senha.`;
+    super({
+      statusCode: HttpStatus.CONFLICT,
+      message,
+      error: ErrorCode.OAUTH_ACCOUNT_EXISTS,
+      timestamp: new Date().toISOString(),
+    } as ErrorResponse);
+  }
+}
+
+export class InvalidResetTokenException extends UnauthorizedException {
+  constructor(reason?: 'expired' | 'used' | 'invalid') {
+    let message: string;
+    let code: ErrorCode;
+
+    switch (reason) {
+      case 'expired':
+        message = ErrorMessages[ErrorCode.RESET_TOKEN_EXPIRED];
+        code = ErrorCode.RESET_TOKEN_EXPIRED;
+        break;
+      case 'used':
+        message = ErrorMessages[ErrorCode.RESET_TOKEN_USED];
+        code = ErrorCode.RESET_TOKEN_USED;
+        break;
+      default:
+        message = ErrorMessages[ErrorCode.RESET_TOKEN_INVALID];
+        code = ErrorCode.RESET_TOKEN_INVALID;
+    }
+
+    super({
+      statusCode: HttpStatus.UNAUTHORIZED,
+      message,
+      error: code,
+      timestamp: new Date().toISOString(),
+    } as ErrorResponse);
+  }
+}
+
 // ==================== FORM EXCEPTIONS ====================
 
 export class FormNotFoundException extends NotFoundException {
