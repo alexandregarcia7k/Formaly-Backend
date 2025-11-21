@@ -27,6 +27,16 @@ export class FormsRepository {
     });
   }
 
+  async findByIdAndUserId(id: string, userId: string): Promise<Form | null> {
+    return this.prisma.form.findFirst({
+      where: { id, userId },
+      include: {
+        fields: true,
+        password: true,
+      },
+    });
+  }
+
   async findByUserId(
     userId: string,
     skip: number,
@@ -49,7 +59,6 @@ export class FormsRepository {
     skip: number,
     take: number,
   ): Promise<Form[]> {
-    // Se buscar em responses, usar query raw
     if (
       filters.search &&
       (filters.searchIn === 'responses' || filters.searchIn === 'all')
@@ -57,7 +66,6 @@ export class FormsRepository {
       return this.searchInResponses(userId, filters, skip, take);
     }
 
-    // Busca normal em form
     const where = this.buildWhereClause(userId, filters);
     const orderBy: Prisma.FormOrderByWithRelationInput = {
       [filters.sortBy || 'createdAt']: filters.sortOrder || 'desc',
@@ -68,8 +76,25 @@ export class FormsRepository {
       skip,
       take,
       orderBy,
-      include: {
-        password: true,
+      select: {
+        id: true,
+        userId: true,
+        name: true,
+        description: true,
+        status: true,
+        totalResponses: true,
+        totalViews: true,
+        lastResponseAt: true,
+        maxResponses: true,
+        expiresAt: true,
+        allowMultipleSubmissions: true,
+        createdAt: true,
+        updatedAt: true,
+        password: {
+          select: {
+            hash: true,
+          },
+        },
       },
     });
   }
@@ -90,11 +115,13 @@ export class FormsRepository {
       searchQuery,
     );
 
+    const validStatus = this.validateStatus(filters.status);
+
     const forms = await this.prisma.$queryRaw<Form[]>`
       SELECT DISTINCT f.*
       FROM forms f
       WHERE f.user_id = ${userId}::uuid
-        ${filters.status && filters.status !== 'all' ? Prisma.sql`AND f.status = ${filters.status.toUpperCase()}` : Prisma.empty}
+        ${validStatus ? Prisma.sql`AND f.status = ${Prisma.raw(validStatus)}` : Prisma.empty}
         AND (${searchCondition})
       ${orderByClause}
       LIMIT ${take}
@@ -102,6 +129,16 @@ export class FormsRepository {
     `;
 
     return forms;
+  }
+
+  private validateStatus(status?: string): string | null {
+    if (!status || status === 'all') return null;
+    const validStatuses = ['ACTIVE', 'INACTIVE'];
+    const upperStatus = status.toUpperCase();
+    if (!validStatuses.includes(upperStatus)) {
+      throw new Error(`Invalid status: ${status}`);
+    }
+    return upperStatus;
   }
 
   async countByUserId(userId: string): Promise<number> {
@@ -136,11 +173,13 @@ export class FormsRepository {
       searchQuery,
     );
 
+    const validStatus = this.validateStatus(filters.status);
+
     const result = await this.prisma.$queryRaw<[{ count: bigint }]>`
       SELECT COUNT(DISTINCT f.id) as count
       FROM forms f
       WHERE f.user_id = ${userId}::uuid
-        ${filters.status && filters.status !== 'all' ? Prisma.sql`AND f.status = ${filters.status.toUpperCase()}` : Prisma.empty}
+        ${validStatus ? Prisma.sql`AND f.status = ${Prisma.raw(validStatus)}` : Prisma.empty}
         AND (${searchCondition})
     `;
 
@@ -164,15 +203,69 @@ export class FormsRepository {
     });
   }
 
-  async clone(formId: string): Promise<Form> {
-    const original = await this.prisma.form.findUnique({
-      where: { id: formId },
-      include: { fields: true, password: true },
-    });
+  async updateWithTransaction(
+    id: string,
+    data: Prisma.FormUpdateInput,
+    userId: string,
+    oldStatus: string,
+    newStatus?: string,
+  ): Promise<Form> {
+    return this.prisma.$transaction(async (tx) => {
+      const form = await tx.form.update({
+        where: { id },
+        data,
+        include: {
+          fields: true,
+          password: true,
+        },
+      });
 
-    if (!original) {
-      throw new Error('Form not found');
-    }
+      const statusChanged = newStatus && newStatus !== oldStatus;
+      await tx.activity.create({
+        data: {
+          type: statusChanged ? 'form_status_changed' : 'form_updated',
+          formId: form.id,
+          message: statusChanged
+            ? `Formulário "${form.name}" ${newStatus === 'ACTIVE' ? 'ativado' : 'desativado'}`
+            : `Formulário "${form.name}" atualizado`,
+          userId,
+        },
+      });
+
+      return form;
+    });
+  }
+
+  async deleteWithTransaction(
+    id: string,
+    userId: string,
+    formName: string,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.form.delete({
+        where: { id },
+      });
+
+      await tx.activity.create({
+        data: {
+          type: 'form_deleted',
+          message: `Formulário "${formName}" deletado`,
+          userId,
+        },
+      });
+    });
+  }
+
+  async cloneWithValidation(formId: string, userId: string): Promise<Form> {
+    return this.prisma.$transaction(async (tx) => {
+      const original = await tx.form.findFirst({
+        where: { id: formId, userId },
+        include: { fields: true, password: true },
+      });
+
+      if (!original) {
+        throw new Error('Form not found');
+      }
 
     const cloneData: Prisma.FormCreateInput = {
       user: { connect: { id: original.userId } },
@@ -199,12 +292,24 @@ export class FormsRepository {
       };
     }
 
-    return this.prisma.form.create({
-      data: cloneData,
-      include: {
-        fields: true,
-        password: true,
-      },
+      const form = await tx.form.create({
+        data: cloneData,
+        include: {
+          fields: true,
+          password: true,
+        },
+      });
+
+      await tx.activity.create({
+        data: {
+          type: 'form_cloned',
+          formId: form.id,
+          message: `Formulário "${form.name}" clonado`,
+          userId,
+        },
+      });
+
+      return form;
     });
   }
 
@@ -242,7 +347,15 @@ export class FormsRepository {
       totalResponses: 'total_responses',
     };
 
-    const column = validSortColumns[sortBy] || 'created_at';
+    const column = validSortColumns[sortBy];
+    if (!column) {
+      throw new Error(`Invalid sortBy: ${sortBy}`);
+    }
+
+    if (sortOrder !== 'asc' && sortOrder !== 'desc') {
+      throw new Error(`Invalid sortOrder: ${sortOrder}`);
+    }
+
     const order = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
     return Prisma.sql`ORDER BY f.${Prisma.raw(column)} ${Prisma.raw(order)}`;
@@ -275,5 +388,41 @@ export class FormsRepository {
           AND fv.search_vector @@ to_tsquery('portuguese', ${searchQuery})
       )
     `;
+  }
+
+  async findSubmissions(
+    formId: string,
+    skip: number,
+    take: number,
+  ) {
+    return this.prisma.formSubmission.findMany({
+      where: { formId },
+      skip,
+      take,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        formId: true,
+        ipAddress: true,
+        userAgent: true,
+        startedAt: true,
+        completedAt: true,
+        timeSpent: true,
+        createdAt: true,
+        values: {
+          select: {
+            fieldId: true,
+            type: true,
+            value: true,
+          },
+        },
+      },
+    });
+  }
+
+  async countSubmissions(formId: string): Promise<number> {
+    return this.prisma.formSubmission.count({
+      where: { formId },
+    });
   }
 }

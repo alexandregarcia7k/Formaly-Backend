@@ -1,10 +1,10 @@
 import { Module, Global } from '@nestjs/common';
 import {
   ThrottlerModule,
-  ThrottlerGuard,
   ThrottlerStorage,
 } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { UserThrottlerGuard } from '../guards/user-throttler.guard';
 import { redis } from '../redis/redis.client';
 
 // Custom storage usando Upstash Redis
@@ -90,7 +90,7 @@ const THROTTLE_CONFIG = {
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: UserThrottlerGuard,
     },
   ],
   exports: [ThrottlerModule],

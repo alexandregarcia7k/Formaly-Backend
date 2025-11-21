@@ -1,8 +1,7 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
+import { Injectable, Logger } from '@nestjs/common';
 import { FormsRepository } from './forms.repository';
 import { ActivityRepository } from '../dashboard/activity.repository';
+import { CacheService } from '@/common/services/cache.service';
 import { CACHE_KEYS } from '@/common/constants/cache.constants';
 import { CreateFormDto, FieldInput } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
@@ -45,12 +44,13 @@ export interface FormattedForm {
 
 @Injectable()
 export class FormsService {
-  private readonly BCRYPT_ROUNDS = 10;
+  private readonly BCRYPT_ROUNDS = 12;
+  private readonly logger = new Logger(FormsService.name);
 
   constructor(
     private readonly formsRepository: FormsRepository,
     private readonly activityRepository: ActivityRepository,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   async create(dto: CreateFormDto, userId: string): Promise<FormattedForm> {
@@ -93,8 +93,14 @@ export class FormsService {
         message: `Formulário "${form.name}" criado`,
         user: { connect: { id: userId } },
       })
-      .catch(() => {
-        // Fail silently
+      .catch((error: unknown) => {
+        let message: string;
+        if (error instanceof Error) {
+          message = error.message;
+        } else {
+          message = 'Unknown error';
+        }
+        this.logger.error(`Failed to create activity: ${message}`);
       });
 
     return this.formatFormResponse(form, true);
@@ -136,14 +142,10 @@ export class FormsService {
   }
 
   async findOne(id: string, userId: string): Promise<FormattedForm> {
-    const form = await this.formsRepository.findById(id);
+    const form = await this.formsRepository.findByIdAndUserId(id, userId);
 
     if (!form) {
       throw new FormNotFoundException(id);
-    }
-
-    if (form.userId !== userId) {
-      throw new FormUnauthorizedException();
     }
 
     return this.formatFormResponse(form, true);
@@ -154,14 +156,13 @@ export class FormsService {
     dto: UpdateFormDto,
     userId: string,
   ): Promise<FormattedForm> {
-    const existingForm = await this.formsRepository.findById(id);
+    const existingForm = await this.formsRepository.findByIdAndUserId(
+      id,
+      userId,
+    );
 
     if (!existingForm) {
       throw new FormNotFoundException(id);
-    }
-
-    if (existingForm.userId !== userId) {
-      throw new FormUnauthorizedException();
     }
 
     if (dto.fields) {
@@ -203,61 +204,40 @@ export class FormsService {
       };
     }
 
-    // Invalidar cache ANTES do update
+    const form = await this.formsRepository.updateWithTransaction(
+      id,
+      updateData,
+      userId,
+      existingForm.status,
+      dto.status,
+    );
+
     await this.invalidateCache(id);
-
-    const form = await this.formsRepository.update(id, updateData);
-
-    const statusChanged = dto.status && dto.status !== existingForm.status;
-    this.activityRepository
-      .create({
-        type: statusChanged ? 'form_status_changed' : 'form_updated',
-        formId: form.id,
-        message: statusChanged
-          ? `Formulário "${form.name}" ${dto.status === 'ACTIVE' ? 'ativado' : 'desativado'}`
-          : `Formulário "${form.name}" atualizado`,
-        user: { connect: { id: userId } },
-      })
-      .catch(() => {
-        // Fail silently
-      });
 
     return this.formatFormResponse(form, true);
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    const existingForm = await this.findOne(id, userId);
+    const existingForm = await this.formsRepository.findByIdAndUserId(
+      id,
+      userId,
+    );
 
-    // Invalidar cache ANTES do delete
+    if (!existingForm) {
+      throw new FormNotFoundException(id);
+    }
+
+    await this.formsRepository.deleteWithTransaction(
+      id,
+      userId,
+      existingForm.name,
+    );
+
     await this.invalidateCache(id);
-
-    await this.formsRepository.delete(id);
-
-    this.activityRepository
-      .create({
-        type: 'form_deleted',
-        message: `Formulário "${existingForm.name}" deletado`,
-        user: { connect: { id: userId } },
-      })
-      .catch(() => {
-        // Fail silently
-      });
   }
 
   async clone(id: string, userId: string): Promise<FormattedForm> {
-    await this.findOne(id, userId);
-    const form = await this.formsRepository.clone(id);
-
-    this.activityRepository
-      .create({
-        type: 'form_cloned',
-        formId: form.id,
-        message: `Formulário "${form.name}" clonado`,
-        user: { connect: { id: userId } },
-      })
-      .catch(() => {
-        // Fail silently
-      });
+    const form = await this.formsRepository.cloneWithValidation(id, userId);
 
     return this.formatFormResponse(form, true);
   }
@@ -290,10 +270,87 @@ export class FormsService {
 
   private async invalidateCache(formId: string): Promise<void> {
     try {
-      await this.cacheManager.del(CACHE_KEYS.PUBLIC_FORM(formId));
-    } catch {
-      // Fail silently
+      await this.cacheService.del(CACHE_KEYS.PUBLIC_FORM(formId));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to invalidate cache: ${message}`);
     }
+  }
+
+  async getSubmissions(
+    formId: string,
+    userId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      formId: string;
+      ipAddress: string | null;
+      userAgent: string | null;
+      startedAt: Date | null;
+      completedAt: Date | null;
+      timeSpent: number | null;
+      createdAt: Date;
+      values: Array<{ fieldId: string; type: string; value: unknown }>;
+    }>;
+    pagination: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const form = await this.formsRepository.findByIdAndUserId(formId, userId);
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    const [submissions, total] = await Promise.all([
+      this.formsRepository.findSubmissions(formId, skip, pageSize),
+      this.formsRepository.countSubmissions(formId),
+    ]);
+
+    return {
+      data: submissions.map((sub) => ({
+        id: sub.id,
+        formId: sub.formId,
+        ipAddress: sub.ipAddress ? this.maskIp(sub.ipAddress) : null,
+        userAgent: sub.userAgent,
+        startedAt: sub.startedAt,
+        completedAt: sub.completedAt,
+        timeSpent: sub.timeSpent,
+        createdAt: sub.createdAt,
+        values: sub.values,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
+  private maskIp(ip: string): string {
+    if (ip.includes(':')) {
+      if (ip === '::1' || ip.startsWith('::')) {
+        return '::xxxx';
+      }
+      const parts = ip.split(':').filter((p) => p !== '');
+      if (parts.length >= 2) {
+        return `${parts[0]}:${parts[1]}:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx`;
+      }
+      return 'xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx';
+    }
+    const parts = ip.split('.');
+    if (parts.length === 4) {
+      return `${parts[0]}.${parts[1]}.xxx.xxx`;
+    }
+    return 'xxx.xxx.xxx.xxx';
   }
 
   private formatFormResponse(

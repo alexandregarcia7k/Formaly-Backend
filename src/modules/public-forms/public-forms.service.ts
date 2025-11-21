@@ -1,8 +1,7 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
+import { Injectable } from '@nestjs/common';
 import { PublicFormsRepository } from './public-forms.repository';
 import { ActivityRepository } from '../dashboard/activity.repository';
+import { CacheService } from '@/common/services/cache.service';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -40,7 +39,7 @@ export class PublicFormsService {
   constructor(
     private readonly repository: PublicFormsRepository,
     private readonly activityRepository: ActivityRepository,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   async getPublicForm(
@@ -50,8 +49,7 @@ export class PublicFormsService {
   ): Promise<PublicFormResponse> {
     const cacheKey = CACHE_KEYS.PUBLIC_FORM(id);
 
-    // Tentar buscar do cache
-    const cached = await this.cacheManager.get<PublicFormResponse>(cacheKey);
+    const cached = await this.cacheService.get<PublicFormResponse>(cacheKey);
     if (cached) {
       // SEMPRE validar status atual (query otimizada)
       await this.validateFormStatus(id);
@@ -80,10 +78,7 @@ export class PublicFormsService {
       })),
     };
 
-    // Salvar no cache (não bloqueia se falhar)
-    this.cacheManager
-      .set(cacheKey, response, CACHE_TTL.PUBLIC_FORM)
-      .catch(() => {});
+    this.cacheService.set(cacheKey, response, CACHE_TTL.PUBLIC_FORM).catch(() => {});
 
     // Registrar view em background
     const fingerprint = this.generateFingerprint(ip, userAgent);

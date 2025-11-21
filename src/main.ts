@@ -18,7 +18,7 @@ import { closeRedis } from './common/redis/redis.client';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter({ trustProxy: true }),
   );
 
   // Registrar plugin de cookies

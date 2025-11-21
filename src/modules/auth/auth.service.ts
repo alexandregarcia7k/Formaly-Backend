@@ -32,7 +32,7 @@ export interface AuthResponse {
 
 @Injectable()
 export class AuthService {
-  private readonly BCRYPT_ROUNDS = 10;
+  private readonly BCRYPT_ROUNDS = 12;
 
   constructor(
     private readonly jwtService: JwtService,
