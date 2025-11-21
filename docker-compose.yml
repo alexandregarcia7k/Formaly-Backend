@@ -12,12 +12,62 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - formaly-network
+      formaly-network:
+        aliases:
+          - db
+          - database
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U docker"]
+      test: ["CMD-SHELL", "pg_isready -U docker -d formaly"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: formaly-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      formaly-network:
+        aliases:
+          - cache
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   app:
     build:
@@ -25,21 +75,45 @@ services:
       dockerfile: Dockerfile
     container_name: formaly-backend
     restart: unless-stopped
+    env_file:
+      - .env.docker
     ports:
       - "3333:3333"
     environment:
       DATABASE_URL: postgresql://docker:docker@postgres:5432/formaly?schema=public
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - formaly-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
   formaly-network:

@@ -1,7 +1,7 @@
 # Dependencies
-node_modules/
-dist/
-build/
+/node_modules
+/dist
+/build
 
 # Logs
 logs
@@ -12,18 +12,29 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Test coverage
-coverage/
-.nyc_output/
+# Test results & Runtime data
+/coverage
+/.nyc_output
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Environment variables
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
-# IDEs
-.vscode/
+# IDEs and Editors - General
 .idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
 *.sublime-workspace
 *.suo
 *.ntvs*
@@ -31,12 +42,23 @@ coverage/
 *.sln
 *.sw?
 
-# OS files
+# Operating System files
 .DS_Store
 Thumbs.db
 
-# Docker volumes
+# Docker
+# Ignore local docker-compose overrides and local data volumes
+docker-compose.override.yml
 postgres_data/
 
-# Prisma
-generated/
+# Ignore all directories starting with a dot (e.g., .vscode, .github, .amazonq)
+.*/
+
+# Markdown files
+# Ignore all markdown files...
+*.md
+# ...but keep README.md
+!README.md
+
+# Prisma generated client
+/generated/prisma

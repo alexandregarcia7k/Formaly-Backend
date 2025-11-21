@@ -1,19 +1,19 @@
 import { Module, Global } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
-import { upstashRedis } from '../redis/redis.client';
+import { redis } from '../redis/redis.client';
 
 // Custom store para Upstash Redis com fallback
 const upstashStore = {
   async get(key: string) {
     try {
-      const value = await upstashRedis.get(key);
+      const value = await redis.get(key);
       if (!value) return null;
 
       try {
-        return JSON.parse(value as string);
+        return JSON.parse(value);
       } catch {
         // Remover valor corrompido
-        await upstashRedis.del(key).catch(() => {});
+        await redis.del(key).catch(() => {});
         return null;
       }
     } catch {
@@ -23,18 +23,14 @@ const upstashStore = {
   async set(key: string, value: unknown, ttl?: number) {
     try {
       const serialized = JSON.stringify(value);
-      if (ttl) {
-        await upstashRedis.setex(key, ttl, serialized);
-      } else {
-        await upstashRedis.set(key, serialized);
-      }
+      await redis.set(key, serialized, ttl ? { ex: ttl } : undefined);
     } catch {
       // Fail silently
     }
   },
   async del(key: string) {
     try {
-      await upstashRedis.del(key);
+      await redis.del(key);
     } catch {
       // Fail silently
     }
@@ -42,14 +38,16 @@ const upstashStore = {
   async reset() {},
   async mget(...keys: string[]) {
     try {
-      return upstashRedis.mget(...keys);
+      // mget não está no adapter, usar get individual
+      const values = await Promise.all(keys.map((k) => redis.get(k)));
+      return values;
     } catch {
       return [];
     }
   },
   async mset(args: [string, unknown][]) {
     try {
-      const pipeline = upstashRedis.pipeline();
+      const pipeline = redis.pipeline();
       args.forEach(([key, value]) => {
         pipeline.set(key, JSON.stringify(value));
       });
@@ -60,21 +58,22 @@ const upstashStore = {
   },
   async mdel(...keys: string[]) {
     try {
-      await upstashRedis.del(...keys);
+      const pipeline = redis.pipeline();
+      keys.forEach((key) => {
+        pipeline.del(key);
+      });
+      await pipeline.exec();
     } catch {
       // Fail silently
     }
   },
-  async keys(pattern: string) {
-    try {
-      return upstashRedis.keys(pattern);
-    } catch {
-      return [];
-    }
+  keys(_pattern: string) {
+    // keys não está no adapter, retornar vazio
+    return [];
   },
   async ttl(key: string) {
     try {
-      return upstashRedis.ttl(key);
+      return redis.ttl(key);
     } catch {
       return -1;
     }

@@ -6,6 +6,7 @@ import { UsersModule } from './modules/users/users.module';
 import { FormsModule } from './modules/forms/forms.module';
 import { PublicFormsModule } from './modules/public-forms/public-forms.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { HealthModule } from './modules/health/health.module';
 import { AppCacheModule } from './common/cache/cache.module';
 import { AppThrottlerModule } from './common/throttler/throttler.module';
 
@@ -19,6 +20,7 @@ import { AppThrottlerModule } from './common/throttler/throttler.module';
     FormsModule,
     PublicFormsModule,
     DashboardModule,
+    HealthModule,
   ],
   controllers: [AppController],
 })

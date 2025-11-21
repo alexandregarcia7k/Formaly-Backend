@@ -13,6 +13,7 @@ import {
 } from './common/filters/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import fastifyCookie from '@fastify/cookie';
+import { closeRedis } from './common/redis/redis.client';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -60,15 +61,28 @@ async function bootstrap() {
     SwaggerModule.setup('api', app, document);
   }
 
-  // Inicia o servidor na porta 3333, escutando em todas as interfaces.
   await app.listen(3333, '0.0.0.0');
   console.log(`🚀 Server running on http://localhost:3333`);
   if (process.env.NODE_ENV !== 'production') {
     console.log(`📚 Swagger docs on http://localhost:3333/api`);
   }
+
+  // Graceful shutdown
+  const shutdown = async (signal: string) => {
+    console.log(`\n${signal} received, closing gracefully...`);
+    await app.close();
+    await closeRedis();
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => {
+    void shutdown('SIGTERM');
+  });
+  process.on('SIGINT', () => {
+    void shutdown('SIGINT');
+  });
 }
 
-// Chama a função bootstrap e captura possíveis erros.
 bootstrap().catch((err) => {
   console.error('Erro ao inicializar a aplicação:', err);
   process.exit(1);

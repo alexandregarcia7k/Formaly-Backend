@@ -5,7 +5,7 @@ import {
   ThrottlerStorage,
 } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { upstashRedis } from '../redis/redis.client';
+import { redis } from '../redis/redis.client';
 
 // Custom storage usando Upstash Redis
 class UpstashThrottlerStorage implements ThrottlerStorage {
@@ -27,20 +27,25 @@ class UpstashThrottlerStorage implements ThrottlerStorage {
     const ttlSeconds = Math.ceil(ttl / 1000);
 
     try {
-      // Usar pipeline para operações atômicas
-      const pipeline = upstashRedis.pipeline();
+      const pipeline = redis.pipeline();
       pipeline.incr(redisKey);
       pipeline.expire(redisKey, ttlSeconds);
       pipeline.ttl(redisKey);
       const results = await pipeline.exec();
-      const count = typeof results[0] === 'number' ? results[0] : 0;
-      const ttlRemaining = typeof results[2] === 'number' ? results[2] : -1;
+
+      // ioredis: [[null, value], ...], Upstash: [value, ...]
+      const count = Array.isArray(results[0]) ? results[0][1] : results[0];
+      const ttlRemaining = Array.isArray(results[2])
+        ? results[2][1]
+        : results[2];
+      const countNum = typeof count === 'number' ? count : 0;
+      const ttlNum = typeof ttlRemaining === 'number' ? ttlRemaining : -1;
 
       return {
-        totalHits: count,
-        timeToExpire: ttlRemaining > 0 ? ttlRemaining * 1000 : ttl,
-        isBlocked: count > limit,
-        timeToBlockExpire: ttlRemaining > 0 ? ttlRemaining * 1000 : 0,
+        totalHits: countNum,
+        timeToExpire: ttlNum > 0 ? ttlNum * 1000 : ttl,
+        isBlocked: countNum > limit,
+        timeToBlockExpire: ttlNum > 0 ? ttlNum * 1000 : 0,
       };
     } catch {
       // Fallback: bloquear request se Redis falhar (fail-secure)
@@ -76,6 +81,10 @@ const THROTTLE_CONFIG = {
         { name: 'form-submit', ...THROTTLE_CONFIG.FORM_SUBMIT },
       ],
       storage: new UpstashThrottlerStorage(),
+      skipIf: (context) => {
+        const request = context.switchToHttp().getRequest();
+        return request.url === '/health';
+      },
     }),
   ],
   providers: [
