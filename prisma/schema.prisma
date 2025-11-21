@@ -24,6 +24,7 @@ model User {
   accounts           Account[]
   forms              Form[]
   passwordResetTokens PasswordResetToken[]
+   activities         Activity[]
   
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -84,6 +85,11 @@ model Form {
   expiresAt                DateTime? @map("expires_at")
   allowMultipleSubmissions Boolean   @default(true) @map("allow_multiple_submissions")
   
+  // Campos calculados (sincronizados)
+  totalResponses Int      @default(0) @map("total_responses")
+  totalViews     Int      @default(0) @map("total_views")
+  lastResponseAt DateTime? @map("last_response_at")
+  
   fields      FormField[]
   password    FormPassword?
   submissions FormSubmission[]
@@ -138,16 +144,18 @@ model FormSubmission {
   formId    String  @map("form_id")
   ipAddress String? @map("ip_address")
   userAgent String? @map("user_agent") @db.Text
+  
+  // Metadata de tempo
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  timeSpent   Int?      @map("time_spent") // segundos
+  
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   values FormValue[]
   form      Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
   
-  
-  
-  
-  @@index([formId])
-  @@index([createdAt])
+  @@index([formId, createdAt(sort: Desc)])
   @@map("form_submissions")
 }
 
@@ -161,6 +169,7 @@ model FormValue {
   submissionId String         @map("submission_id")
   type         String         
   value        Json?          
+  searchVector Unsupported("tsvector")? @map("search_vector")
   createdAt DateTime @default(now()) @map("created_at")
   field      FormField      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   submission FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
@@ -186,4 +195,22 @@ model FormView {
   @@id([formId, fingerprint])
   @@index([formId, createdAt])
   @@map("form_views")
+}
+
+// ============================================
+// ATIVIDADES
+// ============================================
+
+model Activity {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // form_created, response_received, form_updated, form_cloned, form_deleted, form_status_changed
+  formId    String?  @map("form_id")
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@index([userId, createdAt])
+  @@map("activities")
 }

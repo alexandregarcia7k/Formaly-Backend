@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, Res, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
 import { SyncUserDto } from './dto/sync-user.dto';
@@ -43,9 +44,11 @@ export class AuthController {
 
   @Post('register')
   @Public()
+  @Throttle({ 'auth-register': { limit: 3 } }) // 3 registros por minuto
   @ApiOperation({ summary: 'Registrar novo usuário' })
   @ApiResponse({ status: 201, description: 'Usuário criado' })
   @ApiResponse({ status: 409, description: 'E-mail já cadastrado' })
+  @ApiResponse({ status: 429, description: 'Muitas tentativas' })
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -57,9 +60,11 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @Throttle({ 'auth-login': { limit: 5 } }) // 5 tentativas por minuto
   @ApiOperation({ summary: 'Login com email/senha' })
   @ApiResponse({ status: 200, description: 'Login realizado' })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
+  @ApiResponse({ status: 429, description: 'Muitas tentativas' })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -73,7 +78,7 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Logout (limpa cookie)' })
   @ApiResponse({ status: 200, description: 'Logout realizado' })
-  async logout(@Res({ passthrough: true }) reply: FastifyReply) {
+  logout(@Res({ passthrough: true }) reply: FastifyReply) {
     reply.clearCookie('accessToken', this.COOKIE_OPTIONS);
     return { message: SuccessMessages.LOGOUT_SUCCESS };
   }
@@ -82,7 +87,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Obter usuário autenticado' })
   @ApiResponse({ status: 200, description: 'Usuário autenticado' })
   @ApiResponse({ status: 401, description: 'Não autenticado' })
-  async getMe(@CurrentUser() user: User) {
+  getMe(@CurrentUser() user: User) {
     const { password: _password, ...userWithoutPassword } = user;
     return { user: userWithoutPassword };
   }
@@ -90,8 +95,10 @@ export class AuthController {
   @Post('forgot-password')
   @Public()
   @HttpCode(200)
+  @Throttle({ 'auth-forgot': { limit: 3 } }) // 3 tentativas por hora
   @ApiOperation({ summary: 'Solicitar recuperação de senha' })
   @ApiResponse({ status: 200, description: 'Email enviado (se existir)' })
+  @ApiResponse({ status: 429, description: 'Muitas tentativas' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }

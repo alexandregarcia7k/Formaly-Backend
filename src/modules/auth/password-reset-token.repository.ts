@@ -9,18 +9,18 @@ export class PasswordResetTokenRepository {
   async create(
     data: Prisma.PasswordResetTokenCreateInput,
   ): Promise<PasswordResetToken> {
-    return this.prisma.passwordResetToken.create({ data });
+    return await this.prisma.passwordResetToken.create({ data });
   }
 
   async findByToken(token: string): Promise<PasswordResetToken | null> {
-    return this.prisma.passwordResetToken.findUnique({
+    return await this.prisma.passwordResetToken.findUnique({
       where: { token },
       include: { user: true },
     });
   }
 
   async markAsUsed(id: string): Promise<PasswordResetToken> {
-    return this.prisma.passwordResetToken.update({
+    return await this.prisma.passwordResetToken.update({
       where: { id },
       data: { used: true },
     });

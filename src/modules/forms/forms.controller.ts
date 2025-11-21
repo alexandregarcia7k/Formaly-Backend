@@ -16,7 +16,9 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { FormsService } from './forms.service';
 import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
@@ -32,12 +34,14 @@ export class FormsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Throttle({ medium: { limit: 10, ttl: 60000 } }) // 10 criações por minuto
   @ApiOperation({ summary: 'Criar novo formulário' })
   @ApiResponse({
     status: 201,
     description: 'Formulário criado com sucesso',
   })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  @ApiResponse({ status: 429, description: 'Muitas tentativas' })
   async create(@Body() dto: CreateFormDto, @CurrentUser() user: User) {
     return this.formsService.create(dto, user.id);
   }
@@ -46,12 +50,49 @@ export class FormsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar formulários do usuário' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({
+    name: 'searchIn',
+    required: false,
+    enum: ['form', 'responses', 'all'],
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'inactive', 'all'],
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['createdAt', 'updatedAt', 'name', 'totalResponses'],
+  })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   @ApiResponse({
     status: 200,
     description: 'Lista de formulários',
   })
-  async findAll(@CurrentUser() user: User, @Query('page') page = 1) {
-    return this.formsService.findAll(user.id, Number(page));
+  async findAll(
+    @CurrentUser() user: User,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 15,
+    @Query('search') search?: string,
+    @Query('searchIn') searchIn: 'form' | 'responses' | 'all' = 'form',
+    @Query('status') status: 'active' | 'inactive' | 'all' = 'all',
+    @Query('sortBy')
+    sortBy: 'createdAt' | 'updatedAt' | 'name' | 'totalResponses' = 'createdAt',
+    @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'desc',
+  ) {
+    return this.formsService.findAll(user.id, {
+      page: Number(page),
+      pageSize: Number(pageSize),
+      search,
+      searchIn,
+      status,
+      sortBy,
+      sortOrder,
+    });
   }
 
   @Get(':id')
@@ -110,6 +151,7 @@ export class FormsController {
   @Post(':id/clone')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Throttle({ medium: { limit: 5, ttl: 60000 } }) // 5 clones por minuto
   @ApiOperation({ summary: 'Clonar formulário' })
   @ApiResponse({
     status: 201,
@@ -119,6 +161,7 @@ export class FormsController {
     status: 404,
     description: 'Formulário não encontrado',
   })
+  @ApiResponse({ status: 429, description: 'Muitas tentativas' })
   async clone(@Param('id') id: string, @CurrentUser() user: User) {
     return this.formsService.clone(id, user.id);
   }

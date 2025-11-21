@@ -1,6 +1,19 @@
 import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
 
+const fieldConfigSchema = z
+  .object({
+    placeholder: z.string().optional(),
+    options: z.array(z.string()).optional(),
+    minLength: z.number().int().positive().optional(),
+    maxLength: z.number().int().positive().optional(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    accept: z.string().optional(),
+    maxSize: z.number().int().positive().optional(),
+  })
+  .passthrough();
+
 const fieldSchema = z.object({
   type: z.enum([
     'text',
@@ -18,7 +31,7 @@ const fieldSchema = z.object({
   name: z.string().min(1, 'Name é obrigatório'),
   placeholder: z.string().nullish(),
   required: z.boolean().default(false),
-  config: z.record(z.string(), z.any()).nullish(),
+  config: fieldConfigSchema.nullish(),
 });
 
 export const createFormSchema = z.object({

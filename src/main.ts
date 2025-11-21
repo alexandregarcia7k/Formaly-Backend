@@ -7,6 +7,10 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import {
+  HttpExceptionFilter,
+  AllExceptionsFilter,
+} from './common/filters/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import fastifyCookie from '@fastify/cookie';
 
@@ -33,9 +37,12 @@ async function bootstrap() {
   // Isso garante que todos os DTOs baseados em Zod serão validados.
   app.useGlobalPipes(new ZodValidationPipe());
 
-  // Adiciona o filtro de exceções do Prisma globalmente.
-  // Converte erros do Prisma em respostas HTTP apropriadas.
-  app.useGlobalFilters(new PrismaExceptionFilter());
+  // Adiciona filtros de exceção globalmente (ordem importa: mais específico primeiro)
+  app.useGlobalFilters(
+    new AllExceptionsFilter(), // Catch-all para erros não tratados
+    new HttpExceptionFilter(), // Exceções HTTP customizadas
+    new PrismaExceptionFilter(), // Erros do Prisma
+  );
 
   // Adiciona JwtAuthGuard globalmente.
   // Protege todas as rotas por padrão, exceto as marcadas com @Public().
