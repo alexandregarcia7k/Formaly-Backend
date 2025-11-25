@@ -112,6 +112,21 @@ export const redis = {
     return localRedis!.ttl(key);
   },
 
+  async exists(key: string): Promise<number> {
+    if (upstashRedis) {
+      return upstashRedis.exists(key);
+    }
+    return localRedis!.exists(key);
+  },
+
+  async setex(key: string, seconds: number, value: string): Promise<void> {
+    if (upstashRedis) {
+      await upstashRedis.set(key, value, { ex: seconds });
+    } else {
+      await localRedis!.setex(key, seconds, value);
+    }
+  },
+
   pipeline(): RedisPipeline {
     if (upstashRedis) {
       return upstashRedis.pipeline() as unknown as RedisPipeline;

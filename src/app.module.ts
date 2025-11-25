@@ -8,12 +8,10 @@ import { PublicFormsModule } from './modules/public-forms/public-forms.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
 import { AppCacheModule } from './common/cache/cache.module';
-import { AppThrottlerModule } from './common/throttler/throttler.module';
 
 @Module({
   imports: [
     AppCacheModule,
-    AppThrottlerModule,
     PrismaModule,
     AuthModule,
     UsersModule,

@@ -1,6 +1,5 @@
 import { Controller, Get, Post, Body, Param, Req, Ip } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { PublicFormsService } from './public-forms.service';
 import { ValidatePasswordDto } from './dto/validate-password.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
@@ -14,7 +13,6 @@ export class PublicFormsController {
   constructor(private readonly publicFormsService: PublicFormsService) {}
 
   @Get(':id')
-  @Throttle({ default: { limit: 100 } }) // 100 views por minuto (generoso mas protege DDoS)
   @ApiOperation({ summary: 'Visualizar formulário público' })
   @ApiResponse({ status: 200, description: 'Formulário encontrado' })
   @ApiResponse({ status: 404, description: 'Formulário não encontrado' })
@@ -32,7 +30,6 @@ export class PublicFormsController {
   }
 
   @Post(':id/validate-password')
-  @Throttle({ 'form-validate': { limit: 5 } }) // 5 tentativas por minuto (brute force)
   @ApiOperation({ summary: 'Validar senha do formulário' })
   @ApiResponse({ status: 200, description: 'Senha válida' })
   @ApiResponse({ status: 401, description: 'Senha inválida' })
@@ -50,7 +47,6 @@ export class PublicFormsController {
   }
 
   @Post(':id/submit')
-  @Throttle({ 'form-submit': { limit: 3 } }) // 3 submissões por minuto (spam)
   @ApiOperation({ summary: 'Enviar resposta do formulário' })
   @ApiResponse({ status: 201, description: 'Resposta enviada com sucesso' })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })

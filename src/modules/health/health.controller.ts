@@ -2,7 +2,6 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import { Public } from '@/common/decorators/public.decorator';
-import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaHealthIndicator } from './prisma.health';
 
 @ApiTags('health')
@@ -15,7 +14,6 @@ export class HealthController {
 
   @Get()
   @Public()
-  @SkipThrottle()
   @HealthCheck()
   @ApiOperation({ summary: 'Health check endpoint' })
   @ApiResponse({ status: 200, description: 'Application is healthy' })

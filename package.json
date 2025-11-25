@@ -31,7 +31,6 @@
     "@nestjs/platform-fastify": "^11.1.8",
     "@nestjs/swagger": "^11.2.1",
     "@nestjs/terminus": "^11.0.0",
-    "@nestjs/throttler": "^6.4.0",
     "@prisma/client": "^6.19.0",
     "@upstash/redis": "^1.35.6",
     "bcrypt": "^6.0.0",

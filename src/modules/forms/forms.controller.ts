@@ -18,7 +18,6 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { FormsService } from './forms.service';
 import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
@@ -35,14 +34,12 @@ export class FormsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Criar novo formulário' })
   @ApiResponse({
     status: 201,
     description: 'Formulário criado com sucesso',
   })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
-  @ApiResponse({ status: 429, description: 'Muitas tentativas' })
   async create(@Body() dto: CreateFormDto, @CurrentUser() user: User) {
     return this.formsService.create(dto, user.id);
   }
@@ -96,7 +93,6 @@ export class FormsController {
   @Post(':id/clone')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Clonar formulário' })
   @ApiResponse({
     status: 201,
@@ -106,7 +102,6 @@ export class FormsController {
     status: 404,
     description: 'Formulário não encontrado',
   })
-  @ApiResponse({ status: 429, description: 'Muitas tentativas' })
   async clone(@Param('id') id: string, @CurrentUser() user: User) {
     return this.formsService.clone(id, user.id);
   }

@@ -1,6 +1,5 @@
 import { Controller, Post, Get, Body, Res, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
 import { SyncUserDto } from './dto/sync-user.dto';
@@ -44,7 +43,6 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  @Throttle({ 'auth-register': { limit: 3 } }) // 3 registros por minuto
   @ApiOperation({ summary: 'Registrar novo usuário' })
   @ApiResponse({ status: 201, description: 'Usuário criado' })
   @ApiResponse({ status: 409, description: 'E-mail já cadastrado' })
@@ -60,7 +58,6 @@ export class AuthController {
 
   @Post('login')
   @Public()
-  @Throttle({ 'auth-login': { limit: 5 } }) // 5 tentativas por minuto
   @ApiOperation({ summary: 'Login com email/senha' })
   @ApiResponse({ status: 200, description: 'Login realizado' })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
@@ -95,7 +92,6 @@ export class AuthController {
   @Post('forgot-password')
   @Public()
   @HttpCode(200)
-  @Throttle({ 'auth-forgot': { limit: 3 } }) // 3 tentativas por hora
   @ApiOperation({ summary: 'Solicitar recuperação de senha' })
   @ApiResponse({ status: 200, description: 'Email enviado (se existir)' })
   @ApiResponse({ status: 429, description: 'Muitas tentativas' })
