@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DashboardRepository } from './dashboard.repository';
 import { ActivityRepository } from './activity.repository';
+import { parsePeriod } from '@/common/utils/period.parser';
 
 @Injectable()
 export class DashboardService {
@@ -35,7 +36,7 @@ export class DashboardService {
   }
 
   async getResponsesOverTime(userId: string, period: string) {
-    const days = this.parsePeriod(period);
+    const days = parsePeriod(period);
     return this.repository.getResponsesOverTime(userId, days);
   }
 
@@ -47,15 +48,5 @@ export class DashboardService {
     ]);
 
     return { data, total };
-  }
-
-  private parsePeriod(period: string): number {
-    const map: Record<string, number> = {
-      '7d': 7,
-      '30d': 30,
-      '90d': 90,
-      '1y': 365,
-    };
-    return map[period] || 30;
   }
 }

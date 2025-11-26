@@ -11,7 +11,6 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import {
   FormNotFoundException,
-  FormUnauthorizedException,
   ValidationException,
 } from '@/common/exceptions/app.exceptions';
 

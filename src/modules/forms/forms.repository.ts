@@ -267,30 +267,30 @@ export class FormsRepository {
         throw new Error('Form not found');
       }
 
-    const cloneData: Prisma.FormCreateInput = {
-      user: { connect: { id: original.userId } },
-      name: `${original.name} (cópia)`,
-      description: original.description,
-      status: original.status,
-      maxResponses: original.maxResponses,
-      expiresAt: original.expiresAt,
-      allowMultipleSubmissions: original.allowMultipleSubmissions,
-      fields: {
-        create: original.fields.map((field) => ({
-          type: field.type,
-          label: field.label,
-          name: field.name,
-          required: field.required,
-          config: field.config as Prisma.JsonObject,
-        })),
-      },
-    };
-
-    if (original.password) {
-      cloneData.password = {
-        create: { hash: original.password.hash },
+      const cloneData: Prisma.FormCreateInput = {
+        user: { connect: { id: original.userId } },
+        name: `${original.name} (cópia)`,
+        description: original.description,
+        status: original.status,
+        maxResponses: original.maxResponses,
+        expiresAt: original.expiresAt,
+        allowMultipleSubmissions: original.allowMultipleSubmissions,
+        fields: {
+          create: original.fields.map((field) => ({
+            type: field.type,
+            label: field.label,
+            name: field.name,
+            required: field.required,
+            config: field.config as Prisma.JsonObject,
+          })),
+        },
       };
-    }
+
+      if (original.password) {
+        cloneData.password = {
+          create: { hash: original.password.hash },
+        };
+      }
 
       const form = await tx.form.create({
         data: cloneData,
@@ -390,11 +390,7 @@ export class FormsRepository {
     `;
   }
 
-  async findSubmissions(
-    formId: string,
-    skip: number,
-    take: number,
-  ) {
+  async findSubmissions(formId: string, skip: number, take: number) {
     return this.prisma.formSubmission.findMany({
       where: { formId },
       skip,

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseUserAgent } from '@/common/utils/user-agent.parser';
+import { getStartDate, fillDateRange } from '@/common/utils/date-range.util';
 
 @Injectable()
 export class DashboardRepository {
@@ -70,7 +71,7 @@ export class DashboardRepository {
         id: submission.id,
         formId: submission.form_id,
         formTitle: submission.form_name,
-        submittedAt: submission.created_at,
+        createdAt: submission.created_at,
         timeSpent: submission.time_spent,
         device,
         browser,
@@ -89,8 +90,7 @@ export class DashboardRepository {
   }
 
   async getResponsesOverTime(userId: string, days: number) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    const startDate = getStartDate(days);
 
     const responses = await this.prisma.$queryRaw<
       Array<{ date: Date; count: bigint }>
@@ -110,16 +110,7 @@ export class DashboardRepository {
       dataMap.set(dateStr, Number(r.count));
     });
 
-    const result = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      result.push({
-        date: dateStr,
-        count: dataMap.get(dateStr) || 0,
-      });
-    }
+    const result = fillDateRange(startDate, new Date(), dataMap);
 
     return { data: result };
   }

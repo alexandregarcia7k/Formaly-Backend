@@ -8,7 +8,7 @@ const metadataSchema = z.object({
 });
 
 export const submitResponseSchema = z.object({
-  data: z.record(z.string(), z.any()),
+  values: z.record(z.string(), z.any()),
   password: z.string().optional(),
   metadata: metadataSchema.optional(),
 });

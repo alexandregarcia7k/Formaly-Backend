@@ -35,7 +35,6 @@
     "@upstash/redis": "^1.35.6",
     "bcrypt": "^6.0.0",
     "cache-manager": "^7.2.5",
-    "geoip-lite": "^1.4.10",
     "ioredis": "^5.8.2",
     "nestjs-zod": "^5.0.1",
     "passport": "^0.7.0",

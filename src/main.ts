@@ -1,4 +1,4 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -11,7 +11,6 @@ import {
   HttpExceptionFilter,
   AllExceptionsFilter,
 } from './common/filters/http-exception.filter';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import fastifyCookie from '@fastify/cookie';
 import { closeRedis } from './common/redis/redis.client';
 
@@ -45,10 +44,8 @@ async function bootstrap() {
     new PrismaExceptionFilter(), // Erros do Prisma
   );
 
-  // Adiciona JwtAuthGuard globalmente.
+  // Adiciona JwtAuthGuard globalmente via APP_GUARD provider (melhor prática)
   // Protege todas as rotas por padrão, exceto as marcadas com @Public().
-  const reflector = app.get(Reflector);
-  app.useGlobalGuards(new JwtAuthGuard(reflector));
 
   // Configuração do Swagger para documentação da API (apenas em desenvolvimento).
   if (process.env.NODE_ENV !== 'production') {

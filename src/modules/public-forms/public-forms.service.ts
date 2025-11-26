@@ -23,7 +23,7 @@ export interface PublicFormResponse {
   id: string;
   name: string;
   description: string | null;
-  hasPassword: boolean;
+  requiresPassword: boolean;
   fields: Array<{
     id: string;
     type: string;
@@ -67,7 +67,7 @@ export class PublicFormsService {
       id: form.id,
       name: form.name,
       description: form.description,
-      hasPassword: !!form.password,
+      requiresPassword: !!form.password,
       fields: form.fields.map((field) => ({
         id: field.id,
         type: field.type,
@@ -78,7 +78,9 @@ export class PublicFormsService {
       })),
     };
 
-    this.cacheService.set(cacheKey, response, CACHE_TTL.PUBLIC_FORM).catch(() => {});
+    this.cacheService
+      .set(cacheKey, response, CACHE_TTL.PUBLIC_FORM)
+      .catch(() => {});
 
     // Registrar view em background
     const fingerprint = this.generateFingerprint(ip, userAgent);
@@ -135,7 +137,7 @@ export class PublicFormsService {
 
     const requiredFields = form.fields.filter((f) => f.required);
     const missingFields = requiredFields.filter((field) => {
-      const value = dto.data[field.name];
+      const value = dto.values[field.name];
       return value === undefined || value === null || value === '';
     });
 
@@ -157,7 +159,7 @@ export class PublicFormsService {
         : undefined,
       timeSpent: dto.metadata?.timeSpent,
       values: {
-        create: Object.entries(dto.data)
+        create: Object.entries(dto.values)
           .filter(([key]) => form.fields.some((f) => f.name === key))
           .map(([key, value]) => {
             const field = form.fields.find((f) => f.name === key)!;
