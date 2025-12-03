@@ -16,23 +16,23 @@ export class AnalyticsRepository {
 
     const [viewsData, submissionsData] = await Promise.all([
       this.prisma.$queryRaw<{ date: Date; count: bigint }[]>`
-        SELECT DATE(fv."createdAt") as date, COUNT(*)::bigint as count
-        FROM "FormView" fv
-        INNER JOIN "Form" f ON fv."formId" = f.id
-        WHERE f."userId" = ${userId}
-          AND fv."createdAt" >= ${startDate}
+        SELECT DATE(fv.created_at) as date, COUNT(*)::bigint as count
+        FROM form_views fv
+        INNER JOIN forms f ON fv.form_id = f.id
+        WHERE f.user_id = ${userId}
+          AND fv.created_at >= ${startDate}
           ${formId ? Prisma.sql`AND f.id = ${formId}` : Prisma.empty}
-        GROUP BY DATE(fv."createdAt")
+        GROUP BY DATE(fv.created_at)
         ORDER BY date ASC
       `,
       this.prisma.$queryRaw<{ date: Date; count: bigint }[]>`
-        SELECT DATE(fs."createdAt") as date, COUNT(*)::bigint as count
-        FROM "FormSubmission" fs
-        INNER JOIN "Form" f ON fs."formId" = f.id
-        WHERE f."userId" = ${userId}
-          AND fs."createdAt" >= ${startDate}
+        SELECT DATE(fs.created_at) as date, COUNT(*)::bigint as count
+        FROM form_submissions fs
+        INNER JOIN forms f ON fs.form_id = f.id
+        WHERE f.user_id = ${userId}
+          AND fs.created_at >= ${startDate}
           ${formId ? Prisma.sql`AND f.id = ${formId}` : Prisma.empty}
-        GROUP BY DATE(fs."createdAt")
+        GROUP BY DATE(fs.created_at)
         ORDER BY date ASC
       `,
     ]);
@@ -132,13 +132,13 @@ export class AnalyticsRepository {
       { dow: number; hour: number; count: bigint }[]
     >`
       SELECT 
-        EXTRACT(DOW FROM fs."createdAt")::int as dow,
-        EXTRACT(HOUR FROM fs."createdAt")::int as hour,
+        EXTRACT(DOW FROM fs.created_at)::int as dow,
+        EXTRACT(HOUR FROM fs.created_at)::int as hour,
         COUNT(*)::bigint as count
-      FROM "FormSubmission" fs
-      INNER JOIN "Form" f ON fs."formId" = f.id
-      WHERE f."userId" = ${userId}
-        AND fs."createdAt" >= ${startDate}
+      FROM form_submissions fs
+      INNER JOIN forms f ON fs.form_id = f.id
+      WHERE f.user_id = ${userId}
+        AND fs.created_at >= ${startDate}
         ${formId ? Prisma.sql`AND f.id = ${formId}` : Prisma.empty}
       GROUP BY dow, hour
     `;

@@ -27,11 +27,18 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     };
 
     switch (exception.code) {
-      case 'P2002': // Unique constraint violation
+      case 'P2002': { // Unique constraint violation
         errorResponse.statusCode = HttpStatus.CONFLICT;
-        errorResponse.message = 'Registro duplicado';
         errorResponse.error = ErrorCode.DUPLICATE_RECORD;
+        
+        const target = exception.meta?.target as string[] | undefined;
+        if (target?.includes('name') && target?.includes('userId')) {
+          errorResponse.message = 'Você já possui um formulário com este nome';
+        } else {
+          errorResponse.message = 'Registro duplicado';
+        }
         break;
+      }
 
       case 'P2025': // Record not found
         errorResponse.statusCode = HttpStatus.NOT_FOUND;

@@ -15,7 +15,9 @@ export class DashboardService {
       await this.repository.getStats(userId);
 
     const averageCompletionRate =
-      totalViews > 0 ? (totalResponses / totalViews) * 100 : 0;
+      totalViews > 0
+        ? Math.min(100, (totalResponses / totalViews) * 100)
+        : 0;
 
     return {
       totalForms,

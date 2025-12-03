@@ -135,10 +135,24 @@ export class PublicFormsService {
       }
     }
 
+    const hasAtLeastOneField = Object.values(dto.values).some((value) => {
+      if (value === undefined || value === null) return false;
+      if (typeof value === 'string' && value.trim() === '') return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      return true;
+    });
+
+    if (!hasAtLeastOneField) {
+      throw new ValidationException('Preencha pelo menos um campo do formulário');
+    }
+
     const requiredFields = form.fields.filter((f) => f.required);
     const missingFields = requiredFields.filter((field) => {
       const value = dto.values[field.name];
-      return value === undefined || value === null || value === '';
+      if (value === undefined || value === null) return true;
+      if (typeof value === 'string' && value.trim() === '') return true;
+      if (Array.isArray(value) && value.length === 0) return true;
+      return false;
     });
 
     if (missingFields.length > 0) {
@@ -147,17 +161,24 @@ export class PublicFormsService {
       );
     }
 
+    const now = new Date();
+    const startedAt = dto.metadata?.startedAt
+      ? new Date(dto.metadata.startedAt)
+      : now;
+    const completedAt = dto.metadata?.completedAt
+      ? new Date(dto.metadata.completedAt)
+      : now;
+    const timeSpent =
+      dto.metadata?.timeSpent ??
+      Math.floor((completedAt.getTime() - startedAt.getTime()) / 1000);
+
     const submission = await this.repository.createSubmissionWithStats(id, {
       form: { connect: { id } },
       ipAddress: ip,
       userAgent,
-      startedAt: dto.metadata?.startedAt
-        ? new Date(dto.metadata.startedAt)
-        : undefined,
-      completedAt: dto.metadata?.completedAt
-        ? new Date(dto.metadata.completedAt)
-        : undefined,
-      timeSpent: dto.metadata?.timeSpent,
+      startedAt,
+      completedAt,
+      timeSpent,
       values: {
         create: Object.entries(dto.values)
           .filter(([key]) => form.fields.some((f) => f.name === key))

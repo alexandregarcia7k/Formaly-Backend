@@ -53,8 +53,6 @@ export class FormsService {
   ) {}
 
   async create(dto: CreateFormDto, userId: string): Promise<FormattedForm> {
-    this.validateFieldOptions(dto.fields);
-
     const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : undefined;
 
     const formData: Prisma.FormCreateInput = {
@@ -164,10 +162,6 @@ export class FormsService {
       throw new FormNotFoundException(id);
     }
 
-    if (dto.fields) {
-      this.validateFieldOptions(dto.fields);
-    }
-
     const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : undefined;
 
     const updateData: Prisma.FormUpdateInput = {
@@ -250,21 +244,6 @@ export class FormsService {
       ...(field.config || {}),
       ...(field.placeholder && { placeholder: field.placeholder }),
     } as Prisma.JsonObject;
-  }
-
-  private validateFieldOptions(fields: FieldInput[]): void {
-    const fieldsWithOptions = ['select', 'radio', 'checkbox'];
-
-    for (const field of fields) {
-      if (fieldsWithOptions.includes(field.type)) {
-        const options = field.config?.options;
-        if (!options || !Array.isArray(options) || options.length === 0) {
-          throw new ValidationException(
-            `Campo "${field.label}" do tipo "${field.type}" deve ter opções`,
-          );
-        }
-      }
-    }
   }
 
   private async invalidateCache(formId: string): Promise<void> {

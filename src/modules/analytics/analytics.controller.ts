@@ -138,7 +138,7 @@ export class AnalyticsController {
     growth: { value: number; trend: number; isPositive: boolean };
     conversionRate: { value: number; trend: number; isPositive: boolean };
     averageTime: { value: string; trend: number; isPositive: boolean };
-    engagement: { value: number; description: string };
+    engagement: { value: number; trend: number; isPositive: boolean; description: string };
   }> {
     return this.analyticsService.getKPIs(
       user.id,

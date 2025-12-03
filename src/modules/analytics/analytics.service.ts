@@ -3,6 +3,7 @@ import { AnalyticsRepository } from './analytics.repository';
 import { parseUserAgent } from '@/common/utils/user-agent.parser';
 import { parsePeriod } from '@/common/utils/period.parser';
 import { formatTimeSpent } from '@/common/utils/time-formatter';
+import { getLocationFromIp } from '@/common/utils/geo.parser';
 
 @Injectable()
 export class AnalyticsService {
@@ -172,7 +173,9 @@ export class AnalyticsService {
       totalViews: views,
       totalSubmissions: completed,
       overallConversion:
-        views > 0 ? Number(((completed / views) * 100).toFixed(2)) : 0,
+        views > 0
+          ? Math.min(100, Number(((completed / views) * 100).toFixed(2)))
+          : 0,
       criticalPoints,
     };
   }
@@ -248,8 +251,6 @@ export class AnalyticsService {
       formId,
     );
 
-    const { getLocationFromIp } = await import('@/common/utils/geo.parser.js');
-
     const states = await Promise.all(
       submissionIps.map((ip) => getLocationFromIp(ip)),
     );
@@ -299,7 +300,12 @@ export class AnalyticsService {
     growth: { value: number; trend: number; isPositive: boolean };
     conversionRate: { value: number; trend: number; isPositive: boolean };
     averageTime: { value: string; trend: number; isPositive: boolean };
-    engagement: { value: number; description: string };
+    engagement: {
+      value: number;
+      trend: number;
+      isPositive: boolean;
+      description: string;
+    };
   }> {
     const days = parsePeriod(period);
 
@@ -319,10 +325,12 @@ export class AnalyticsService {
 
     const currentConversion =
       current.totalViews > 0
-        ? (current.totalResponses / current.totalViews) * 100
+        ? Math.min(100, (current.totalResponses / current.totalViews) * 100)
         : 0;
     const previousConversion =
-      previousViews > 0 ? (previousResponses / previousViews) * 100 : 0;
+      previousViews > 0
+        ? Math.min(100, (previousResponses / previousViews) * 100)
+        : 0;
     const conversionTrend = currentConversion - previousConversion;
 
     const engagementScore = Math.min(
@@ -353,6 +361,8 @@ export class AnalyticsService {
       },
       engagement: {
         value: engagementScore,
+        trend: 0,
+        isPositive: true,
         description:
           engagementScore >= 70
             ? 'Excelente'
@@ -392,7 +402,7 @@ export class AnalyticsService {
       .map((form) => {
         const conversao =
           form.totalViews > 0
-            ? (form.totalResponses / form.totalViews) * 100
+            ? Math.min(100, (form.totalResponses / form.totalViews) * 100)
             : 0;
         return { ...form, conversao };
       })
@@ -405,7 +415,7 @@ export class AnalyticsService {
         respostas: form.totalResponses,
         conversao: Number(form.conversao.toFixed(2)),
         tempo: formatTimeSpent(form.avgTimeSpent, true),
-        score: Math.min(5, Math.max(1, Math.round((form.conversao / 20) * 5))),
+        score: Math.min(5, Math.max(1, Math.round(form.conversao / 20))),
       }));
 
     const avgConversion =

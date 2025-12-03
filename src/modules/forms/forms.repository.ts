@@ -37,6 +37,15 @@ export class FormsRepository {
     });
   }
 
+  async findByNameAndUserId(
+    name: string,
+    userId: string,
+  ): Promise<Form | null> {
+    return this.prisma.form.findFirst({
+      where: { name, userId },
+    });
+  }
+
   async findByUserId(
     userId: string,
     skip: number,
