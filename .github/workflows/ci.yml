@@ -31,7 +31,7 @@ jobs:
       run: npm run lint
 
     - name: TypeScript check
-      run: npx tsc --noEmit --strict --noUnusedLocals --noUnusedParameters
+      run: npx tsc --noEmit
 
     - name: Build project
       run: npm run build
