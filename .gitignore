@@ -23,13 +23,11 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# Environment variables
+# Environment variables (ALL)
 .env
 .env.*
-!.env.example
 
 # IDEs and Editors - General
-.idea/
 .project
 .classpath
 .c9/
@@ -51,14 +49,21 @@ Thumbs.db
 docker-compose.override.yml
 postgres_data/
 
-# Ignore all directories starting with a dot (e.g., .vscode, .github, .amazonq)
-.*/
+# IDEs and hidden folders
+.vscode/
+.amazonq/
+.idea/
 
 # Markdown files
 # Ignore all markdown files...
 *.md
 # ...but keep README.md
 !README.md
+
+# Security documentation (internal only)
+docs/SECURITY_TODO.md
+docs/*_DIAGNOSTICO.md
+ANALYTICS_ERRORS_DIAGNOSTICO.md
 
 # Prisma generated client
 /generated/prisma
