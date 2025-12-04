@@ -53,12 +53,16 @@ postgres_data/
 .vscode/
 .amazonq/
 .idea/
+.github/
 
 # Markdown files
 # Ignore all markdown files...
 *.md
 # ...but keep README.md
 !README.md
+
+# GitHub workflows (internal CI/CD)
+.github/
 
 # Security documentation (internal only)
 docs/SECURITY_TODO.md
